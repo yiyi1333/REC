@@ -1,35 +1,91 @@
 #include <iostream>
 #include <stack>
 #include <vector>
+#include <map>
 using namespace std;
 string alphas;
-class node{
+class NFA{
 private:
-    char alpha;
-    vector<node *> next;
+    string pe;
+    vector<vector<pair<int, char> > > graph;
+    pair<int, int> se;
+    int statenum;
 public:
-    node() {}
-    node(char alpha) : alpha(alpha) {}
-    node(char alpha, const vector<node *> &next) : alpha(alpha), next(next) {}
-
-    char getAlpha() const {
-        return alpha;
+    NFA(string str) : pe(str), statenum(0){}
+    int newState(){
+        graph.push_back(vector<pair<int, char>>());
+        return statenum++;
     }
-
-    void setAlpha(char alpha) {
-        node::alpha = alpha;
+    void toNFA(){
+        //状态栈
+        stack< pair<int, int> > states;
+        //状态边起点和终点编号
+        int s, e;
+        for(auto c : pe){
+            //字符
+            if(c != '*' && c != '.' && c != '|'){
+                s = newState();
+                e = newState();
+                states.push(make_pair(s, e));
+                graph[s].push_back(make_pair(e, c));
+                continue;
+            }
+            //运算符
+            switch (c){
+                case '|':{
+                    //取出栈顶两组
+                    pair<int, int> one = states.top(); states.pop();
+                    pair<int, int> two = states.top(); states.pop();
+                    //合并之后的状态序号
+                    s = newState();
+                    e = newState();
+                    //合并后的状态压入栈
+                    states.push(make_pair(s, e));
+                    //加入四条ε边
+                    graph[s].push_back(make_pair(one.first, ' '));
+                    graph[s].push_back(make_pair(two.first, ' '));
+                    graph[one.second].push_back(make_pair(e, ' '));
+                    graph[two.second].push_back(make_pair(e, ' '));
+                    break;
+                }
+                case '*':{
+                    //取出栈顶一组
+                    pair<int, int> one = states.top(); states.pop();
+                    //合并之后的状态序号
+                    s = newState();
+                    e = newState();
+                    //合并后的状态压入栈
+                    states.push(make_pair(s, e));
+                    //构造ε边
+                    graph[s].push_back(make_pair(one.first, ' '));
+                    graph[s].push_back(make_pair(e, ' '));
+                    graph[one.second].push_back(make_pair(e, ' '));
+                    graph[one.second].push_back(make_pair(one.first, ' '));
+                    break;
+                }
+                case '.':{
+                    pair<int, int> two = states.top(); states.pop();
+                    pair<int, int> one = states.top(); states.pop();
+                    states.push(make_pair(one.first, two.second));
+                    graph[one.second].push_back(make_pair(two.first, ' '));
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        se = make_pair(states.top().first, states.top().second);
     }
-
-    const vector<node *> &getNext() const {
-        return next;
+    void print(){
+        cout << "statr: " << se.first << endl;
+        cout << "end: " << se.second << endl;
+        for(int i = 0; i < statenum; i++){
+            for(auto edge : graph[i]){
+                cout << i << "-----" << edge.second << "----->" << edge.first << endl;
+            }
+        }
     }
-
-    void setNext(const vector<node *> &next) {
-        node::next = next;
-    }
-
 };
-
 string add_symbol(string reg){
     string newreg;
     for(int i = 0; i < reg.length(); i++){
@@ -99,5 +155,10 @@ int main() {
     caculate(oldstr);
     string newstr = translate(add_symbol(oldstr));
     cout << newstr;
+    NFA nfa = NFA(newstr);
+    nfa.toNFA();
+    nfa.print();
+
+//    (0|1)*0.10*
     return 0;
 }
